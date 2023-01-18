@@ -58,9 +58,9 @@ namespace Darpana
         //Gets current weather from OpenWeatherMap API Json file
         public void GetCurrWeather()
         {
-            string currWeather = GetCurrWeatherInfo().Result; //Gets json file from OpenWeatherMap
-            WeatherInfo currInfo = JsonConvert.DeserializeObject<WeatherInfo>(currWeather); //Converts Json file into appropriate types
-            Uri iconUrl = new Uri(String.Concat("http://openweathermap.org/img/wn/", currInfo.Weather.Rows[0][3].ToString(), "@2x.png")); //Gets Icon image from OpenWeatherMap
+            var currWeather = GetCurrWeatherInfo().Result; //Gets json file from OpenWeatherMap
+            var currInfo = JsonConvert.DeserializeObject<WeatherInfo>(currWeather); //Converts Json file into appropriate types
+            var iconUrl = new Uri(String.Concat("http://openweathermap.org/img/wn/", currInfo.Weather.Rows[0][3].ToString(), "@2x.png")); //Gets Icon image from OpenWeatherMap
             UpdateCurrWeather(currInfo, iconUrl); //Updates the display with new data
 
         }
