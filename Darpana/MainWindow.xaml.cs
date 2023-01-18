@@ -76,10 +76,10 @@ namespace Darpana
             string[] minTemp = currInfo.Main["temp_min"].ToString().Split('.');
 
             //This updates the textblocks within the XAML file to show correct data
-            City.Text = String.Concat(city, ", IA");
-            CurrTemp.Text = String.Concat(temp[0], "°F");
-            MaxTemp.Text = String.Concat(maxTemp[0], "°F");
-            MinTemp.Text = String.Concat(minTemp[0], "°F");
+            City.Text     = $"{city}, IA";
+            CurrTemp.Text = $"{temp[0]}, °F";
+            MaxTemp.Text  = $"{maxTemp[0]}, °F";
+            MinTemp.Text  = $"{minTemp[0]}, °F";
             CurrConditions.Text = conditions;
             WeatherIcon.Source = new BitmapImage(iconUrl);
         }
