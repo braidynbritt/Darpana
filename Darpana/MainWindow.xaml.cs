@@ -187,10 +187,10 @@ namespace Darpana
             HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
             var query = $"forecast?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
-            HttpResponseMessage response = client.GetAsync(query).Result;
+
+            var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
-            string s = await response.Content.ReadAsStringAsync();
-            return s;
+            return await response.Content.ReadAsStringAsync();
         }
 
         //DispatcherTimer method for time module. Updated Time and Date
