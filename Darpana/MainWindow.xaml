@@ -16,28 +16,28 @@ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         </Border>
 
         <Border x:Name="WeatherModule" Visibility="Visible">
-            <Grid Margin="0,45,-775,0" HorizontalAlignment="Right" VerticalAlignment="Top">
+            <Grid Margin="0,45,0,0" HorizontalAlignment="Right" VerticalAlignment="Top" Width="388">
 
                 <TextBlock x:Name="City" Height ="40" Width="200" Text="Storm Lake, IA"  Foreground="White" Margin="10,10,0,0" FontSize="30" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                 <TextBlock x:Name="CurrTemp" Height ="70" Width="260" Text="101 F"  Foreground="White" Margin="160,60,0,0" FontSize="60" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                 <TextBlock x:Name="MaxTemp" Height ="30" Width="125" Text="101 F"  Foreground="White" Margin="140,130,0,0" FontSize="24" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <TextBlock x:Name="MinTemp" Height ="30" Width="125" Text="101 F"  Foreground="White" Margin="250,130,0,0" FontSize="24" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <TextBlock x:Name="CurrConditions" Height ="50" Width ="275" Text="CurrConditions"  Foreground="White" Margin="10,180,0,0" FontSize="40" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <TextBlock x:Name="MinTemp" Height ="30" Width="125" Text="101 F"  Foreground="White" Margin="240,130,0,0" FontSize="24" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <TextBlock x:Name="CurrConditions" Height ="55" Width ="275" Text="Fog"  Foreground="White" Margin="10,180,0,0" FontSize="40" HorizontalAlignment="Left" VerticalAlignment="Top" />
 
                 <Border Height="120" Width="120"  Margin="10,60,0,0" CornerRadius="60" RenderTransformOrigin="0.524,0.522" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#FF878181">
                     <Image x:Name ="WeatherIcon" Source ="{Binding}" Height="150" Width="150" Margin="-15,-15,0,0"/>
                 </Border>
-                <TextBlock x:Name="ForecastDT1" Height ="25" Width="200" FontSize="20" Text="Wed" Foreground="White" Margin="10,235,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" />
-                <TextBlock x:Name="ForecastTempMax1" FontSize="20" Text="101 F" Foreground="White" Margin="95,235,10,71" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <TextBlock x:Name="ForecastTempMin1" FontSize="20" Text="101 F" Foreground="White" Margin="175,235,940,71" Grid.ColumnSpan="2" VerticalAlignment="Top" HorizontalAlignment="Left"/>
-                <Border Height="25" Width="25" Background="Gray" Margin="55,235,0,0" CornerRadius="50" VerticalAlignment="Top" HorizontalAlignment="Left">
+                <TextBlock x:Name="ForecastDT1" Height ="25" Width="200" FontSize="20" Text="Wed" Foreground="White" Margin="10,245,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" />
+                <TextBlock x:Name="ForecastTempMax1" FontSize="20" Text="101 F" Foreground="White" Margin="95,245,10,71" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <TextBlock x:Name="ForecastTempMin1" FontSize="20" Text="101 F" Foreground="White" Margin="175,245,10,71" Grid.ColumnSpan="2" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                <Border Height="25" Width="25" Background="Gray" Margin="55,245,0,0" CornerRadius="50" VerticalAlignment="Top" HorizontalAlignment="Left">
                     <Image x:Name ="ForecastIcon1" Source ="{Binding}" Height="35" Width="35" Margin="0,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
 
-                <TextBlock x:Name="ForecastDT2" FontSize="20" Text="Wed" Foreground="White" Margin="10,265,0,0" Width="200" VerticalAlignment="Top" HorizontalAlignment="Left" />
-                <TextBlock x:Name="ForecastTempMax2" FontSize="20" Text="101 F" Foreground="White" Margin="95,265,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="ForecastTempMin2" FontSize="20" Text="101 F" Foreground="White" Margin="175,265,0,0" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Border Height="25" Width="25" Background="Gray" Margin="55,265,0,0" CornerRadius="50" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock x:Name="ForecastDT2" FontSize="20" Text="Wed" Foreground="White" Margin="10,275,0,0" Width="200" VerticalAlignment="Top" HorizontalAlignment="Left" />
+                <TextBlock x:Name="ForecastTempMax2" FontSize="20" Text="101 F" Foreground="White" Margin="95,275,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="ForecastTempMin2" FontSize="20" Text="101 F" Foreground="White" Margin="175,275,0,0" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Border Height="25" Width="25" Background="Gray" Margin="55,275,0,0" CornerRadius="50" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <Image x:Name ="ForecastIcon2" Source ="{Binding}" Height="35" Width="35" Margin="-5,-6,0,0"/>
                 </Border>
 

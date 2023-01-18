@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
@@ -56,9 +57,9 @@ namespace Darpana
         }
 
         //Gets current weather from OpenWeatherMap API Json file
-        public void GetCurrWeather()
+        public async void GetCurrWeather()
         {
-            var currWeather = GetCurrWeatherInfo().Result; //Gets json file from OpenWeatherMap
+            var currWeather = await GetCurrWeatherInfo();//Gets json file from OpenWeatherMap
             var currInfo = JsonConvert.DeserializeObject<WeatherInfo>(currWeather); //Converts Json file into appropriate types
             var iconUrl = new Uri($"http://openweathermap.org/img/wn/{currInfo.Weather.Rows[0][3]}@2x.png"); //Gets Icon image from OpenWeatherMap
             UpdateCurrWeather(currInfo, iconUrl); //Updates the display with new data
@@ -85,9 +86,9 @@ namespace Darpana
         }
 
         //Gets 5 day forecast
-        public void GetForecast()
+        public async void GetForecast()
         {
-            var forecastData = GetForecastInfo().Result; //Gets results from Json forecast file
+            var forecastData = await GetForecastInfo(); //Gets results from Json forecast file
             var forecastInfo = JsonConvert.DeserializeObject<ForecastInfo>(forecastData); //Deserializes json file into appropriate types
 
             UpdateForecast(forecastInfo, 1); //Updates next day forecast
@@ -171,11 +172,13 @@ namespace Darpana
         //Asyn class that does OpenWeatherMap API call. If succesful response is returned then give content to other primary methods
         public async Task<string> GetCurrWeatherInfo()
         {
+            
             HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/"); //API URL for client
             var query = $"weather?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial"; //Api specifics. Gets location of Storm Lake, IA and gives Farhenheit temp.
-            var response = client.GetAsync(query).Result;
-            response.EnsureSuccessStatusCode(); //If response is successful move on
+            var response = await client.GetAsync(query);
+            response.EnsureSuccessStatusCode();
+            //If response is successful move on
             return await response.Content.ReadAsStringAsync();
 
         }
@@ -186,9 +189,11 @@ namespace Darpana
             HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
             var query = $"forecast?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
-            var response = client.GetAsync(query).Result;
+            var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
+
             return await response.Content.ReadAsStringAsync();
+           
         }
 
         //DispatcherTimer method for time module. Updated Time and Date
