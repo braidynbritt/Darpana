@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
@@ -89,23 +88,25 @@ namespace Darpana
         public async void GetForecast()
         {
             var forecastData = await GetForecastInfo(); //Gets results from Json forecast file
+            var forecastTime = await GetForecastTime(); //Gets day of forecast
             var forecastInfo = JsonConvert.DeserializeObject<ForecastInfo>(forecastData); //Deserializes json file into appropriate types
+            var forecastTimeInfo = JsonConvert.DeserializeObject<ForecastInfo>(forecastTime);
 
-            UpdateForecast(forecastInfo, 1); //Updates next day forecast
-            UpdateForecast(forecastInfo, 2); //Updates forecast for 2 days later
+            UpdateForecast(forecastTimeInfo, forecastInfo, 8); //Updates next day forecast
+            UpdateForecast(forecastTimeInfo, forecastInfo, 16); //Updates forecast for 2 days later
 
         }
 
         //Updates XAML textboxes for forecast with new data. Forecast updates every 3 hours until 5 days is achieved
-        public void UpdateForecast(ForecastInfo forecastInfo, int days)
+        public void UpdateForecast(ForecastInfo forecastTimeInfo,ForecastInfo forecastInfo, int hours)
         {
-            var hours = days * 8; //Multiply days by 8. This will get either 8 or 16. The 3 hours multipled by 8 or 16 gives 24 or 48 hours ahead
-            var forecastMain = ToDictionary<string>(forecastInfo.ForecastList[days]["main"]); //Makes main forecast items (temps) a dictionary.
+            var days = hours / 8; //Divides hours by 8. This will get either 1 or 2 for days
+            var forecastMain = ToDictionary<string>(forecastInfo.ForecastList[days]["temp"]); //Makes main forecast items (temps) a dictionary.
             var forecastWeather = ToDataTable(forecastInfo.ForecastList[days]["weather"]); //Makes weather into a dataTable
-            var forecastTempMax = forecastMain["temp_max"].Split('.'); //Filter portion of string out to get integer temp
-            var forecastTempMin = forecastMain["temp_min"].Split('.');
+            var forecastTempMax = forecastMain["max"].Split('.'); //Filter portion of string out to get integer temp
+            var forecastTempMin = forecastMain["min"].Split('.');
             var iconUrl = new Uri($"http://openweathermap.org/img/wn/{forecastWeather.Rows[0][3]}@2x.png"); //Get weather condition icon from OpenWeatherMap
-            var dateValue = CreateDate(forecastInfo, hours); //Runs CreateDate method to update day of week
+            var dateValue = CreateDate(forecastTimeInfo, hours); //Runs CreateDate method to update day of week
 
 
             //If only one day ahead
@@ -188,7 +189,7 @@ namespace Darpana
         {
             HttpClient client = new HttpClient();
             client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
-            var query = $"forecast?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
+            var query = $"forecast/daily?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
             var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
 
@@ -196,8 +197,20 @@ namespace Darpana
            
         }
 
-        //DispatcherTimer method for time module. Updated Time and Date
-        private void DispatcherTimer_Time(object sender, EventArgs e)
+        public async Task<string> GetForecastTime()
+        {
+            HttpClient client = new HttpClient();
+            client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
+            var query = $"forecast?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
+            var response = await client.GetAsync(query);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
+
+            //DispatcherTimer method for time module. Updated Time and Date
+            private void DispatcherTimer_Time(object sender, EventArgs e)
         {
 
             //Updates time and date text boxes
