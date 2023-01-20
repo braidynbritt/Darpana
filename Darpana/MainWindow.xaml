@@ -12,8 +12,10 @@ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
             <Grid Margin="0,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock x:Name="Date" Margin ="47,55,0,0" Text="{Binding Source={x:Static System:DateTime.Now}, StringFormat='{}{0:dddd, MMMM d, yyyy}'}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize="30"/>
                 <TextBlock x:Name="Time" Margin ="40,80,0,0" Text="{Binding Source={x:Static System:DateTime.Now}, StringFormat='{}{0:H:mm:ss tt}'}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize="75"/>
+                
             </Grid>
         </Border>
+        
 
         <Border x:Name="WeatherModule" Visibility="Visible">
             <Grid Margin="0,45,0,0" HorizontalAlignment="Right" VerticalAlignment="Top" Width="388">
@@ -25,7 +27,7 @@ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                 <TextBlock x:Name="CurrConditions" Height ="55" Width ="275" Text="Fog"  Foreground="White" Margin="10,180,0,0" FontSize="40" HorizontalAlignment="Left" VerticalAlignment="Top" />
 
                 <Border Height="120" Width="120"  Margin="10,60,0,0" CornerRadius="60" RenderTransformOrigin="0.524,0.522" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#FF878181">
-                    <Image x:Name ="WeatherIcon" Source ="{Binding}" Height="150" Width="150" Margin="-15,-15,0,0"/>
+                    <Image x:Name ="WeatherIcon" Source ="{Binding}" Height="160" Width="160" Margin="-20,-20,0,0"/>
                 </Border>
                 <TextBlock x:Name="ForecastDT1" Height ="25" Width="200" FontSize="20" Text="Wed" Foreground="White" Margin="10,245,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" />
                 <TextBlock x:Name="ForecastTempMax1" FontSize="20" Text="101 F" Foreground="White" Margin="95,245,10,71" HorizontalAlignment="Left" VerticalAlignment="Top"/>

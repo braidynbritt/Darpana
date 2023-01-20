@@ -8,13 +8,19 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Newtonsoft.Json;
+using System.Speech.Synthesis;
+using System.Speech.Recognition;
+using System.Globalization;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Darpana
 {
     public partial class MainWindow : Window
     {
-        //Global API key
-        string OWAPIKEY;
+        string OWAPIKEY; //Global API key
+        GrammarBuilder initialGrammar; //Grammar for Initializing voice command
+        GrammarBuilder commandGrammar; //Grammar variable for all commands
 
         //For Deserializing current weather Json file
         public class WeatherInfo
@@ -148,6 +154,138 @@ namespace Darpana
             return dateValue;
         }
 
+        //Builds grammars to be added into the speech recognition engine
+        public void BuildGrammars()
+        {
+            var initialChoices = new Choices("darpana"); //Initial command for taking in commands
+            var valueChoices = new Choices("hide", "show"); //Commands for if the user wants to hide or show something
+            var moduleChoices = new Choices("weather", "time", "everything"); //Commands for what to hide or show
+
+            initialGrammar = new GrammarBuilder();
+            commandGrammar = new GrammarBuilder();
+
+            //Adds choices to the grammars
+            commandGrammar.Append(valueChoices);
+            commandGrammar.Append(moduleChoices);
+            initialGrammar.Append(initialChoices);
+
+        }
+
+        //Starts speech recognition to listen to first command "Darpana"
+        public void SpeechRecognitionStart()
+        {
+            var speechRecognizerInitial = new SpeechRecognitionEngine(new CultureInfo("en-US")); //Creates new speech recognition engine in US locale
+
+            speechRecognizerInitial.SpeechRecognized += SpeechRecognizer_SpeechInitial; //Runs the command heard
+            speechRecognizerInitial.LoadGrammarAsync(new Grammar(initialGrammar)); //Loads grammar into recognition engine asynchronously so the engine knows what to listen for
+            speechRecognizerInitial.SetInputToDefaultAudioDevice(); //Sets input to default audio (device mic)
+
+            //Functions to try to cut out time between starting command ("darpana") and show/hide commands. Makes engine not listen after user has made command
+            speechRecognizerInitial.InitialSilenceTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerInitial.BabbleTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerInitial.EndSilenceTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerInitial.EndSilenceTimeoutAmbiguous = TimeSpan.FromSeconds(0);
+
+            speechRecognizerInitial.RecognizeAsync(RecognizeMode.Single); //Recognize speech for one word then stop
+
+        }
+
+        //Same thing as function above but for hide/show commands
+        public void SpeechRecognitionCommands()
+        {
+            var speechRecognizerCommands = new SpeechRecognitionEngine(new CultureInfo("en-US"));
+
+            speechRecognizerCommands.SpeechRecognized += SpeechRecognizer_SpeechCommands;
+            speechRecognizerCommands.LoadGrammarAsync(new Grammar(commandGrammar));
+            speechRecognizerCommands.SetInputToDefaultAudioDevice();
+
+            speechRecognizerCommands.InitialSilenceTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerCommands.BabbleTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerCommands.EndSilenceTimeout = TimeSpan.FromSeconds(0);
+            speechRecognizerCommands.EndSilenceTimeoutAmbiguous = TimeSpan.FromSeconds(0);
+
+            speechRecognizerCommands.RecognizeAsync(RecognizeMode.Multiple); //Listens for multiple phrases
+
+        }
+
+        //Checks if user said Darpana
+        private void SpeechRecognizer_SpeechInitial(object sender, SpeechRecognizedEventArgs e)
+        {
+            if (e.Result.Words.Count == 1) //If user said something make it lower case
+            {
+                var initial = e.Result.Words[0].Text.ToLower();
+
+                switch (initial)
+                {
+                    case "darpana": //if the user said Darpana, have Darpana respond.
+                        var speechSynthesizer = new SpeechSynthesizer(); //Makes new speech synthesizer to allow for talk back
+                        speechSynthesizer.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult, 0, new CultureInfo("fr-FR")); //Makes voice female and french
+                        speechSynthesizer.Volume = 100; //Sets output device to 100% volume
+                        speechSynthesizer.Speak("Yes"); //Has darpana say yes
+                        SpeechRecognitionCommands(); //Once something is said run the recognition for taking in commands
+                        break;
+                }
+            }
+        }
+
+        //Essenitally same thing as above but for commands
+        private void SpeechRecognizer_SpeechCommands(object sender, SpeechRecognizedEventArgs e)
+        {
+
+            if (e.Result.Words.Count == 2) //If there are two words that are said
+            {
+                //Make both words lower case
+                var value = e.Result.Words[0].Text.ToLower();
+                var module = e.Result.Words[1].Text.ToLower();
+
+
+                switch (value)
+                {
+                    case "hide": //if user said hide, check for next command
+                        switch (module)
+                        {
+
+                            //hide module based on if user said weather, time, or everything
+                            case "weather":
+                                WeatherModule.Visibility = Visibility.Hidden;
+                                break;
+
+                            case "time":
+                                TimeModule.Visibility = Visibility.Hidden;
+                                break;
+
+                            case "everything":
+                                DarpanaWindow.Visibility = Visibility.Hidden;
+                                break;
+
+                        }
+                        break;
+
+                    case "show":
+                        switch (module) //if user said show, check for next command
+                        {
+                            //show weather, time, or everything if that is what the user said
+                            case "weather":
+                                WeatherModule.Visibility = Visibility.Visible;
+                                break;
+
+                            case "time":
+                                TimeModule.Visibility = Visibility.Visible;
+                                break;
+
+                            case "everything":
+                                DarpanaWindow.Visibility = Visibility.Visible;
+                                break;
+                        }
+                        break;
+                }
+                //Update display
+                CommandManager.InvalidateRequerySuggested();
+            }
+            //Restart initial speech recognition
+            SpeechRecognitionStart();
+        }
+
         //Starts the dispatcher timers for updating XAML file/display
         public void StartTimers()
         {
@@ -254,6 +392,12 @@ namespace Darpana
             GetCurrWeather(); //Runs all weather methods to get current weather on startup
             GetForecast(); //Runs all forecast methods to get forecast on startup
             StartTimers(); //Starts all the dispatcher timers for updating display
+
+            BuildGrammars(); //Build grammars for speech recognition
+            SpeechRecognitionStart(); //Start speech recognition
+
+
+
         }
 
     }
