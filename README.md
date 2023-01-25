@@ -1,2 +1,2 @@
 # Darpana 
-Darpana is a smart mirror that shows the user various modules such as time and date, weather, and music. Current functionality is weather and time/date. Future functionality includes voice control and a spotify interface. Set up for monitor at resolution 1920x1080.
+Darpana is a smart mirror that shows the user various modules such as time and date, weather, and music. Current functionality is weather, time/date, and voice control. Future functionality includes a spotify interface. Set up for monitor at resolution 1920x1080. To run voice comamand say "Darpana" followed by either "hide" or "show" followed by "time" or "weather". For easter egg say "Darpana operation iron horse".
