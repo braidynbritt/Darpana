@@ -1,4 +1,6 @@
-﻿using System;
+﻿//https://github.com/chunfeilung/slt
+
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Net.Http;
@@ -8,24 +10,19 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Newtonsoft.Json;
-using System.Speech.Synthesis;
 using System.Speech.Recognition;
-using System.Globalization;
-using System.Collections.ObjectModel;
-using System.Linq;
+using System.Diagnostics;
 
 namespace Darpana
 {
     public partial class MainWindow : Window
     {
-        string OWAPIKEY; //Global API key
-        GrammarBuilder initialGrammar; //Grammar for Initializing voice command
-        GrammarBuilder commandGrammar; //Grammar variable for all commands
+        readonly string OWAPIKEY = Environment.GetEnvironmentVariable("OWAPIKEY", EnvironmentVariableTarget.User); //API key for openweather
+        private readonly SpeechRecognitionEngine speechRecognizer = new SpeechRecognitionEngine(); //Global speech recognition engine
 
         //For Deserializing current weather Json file
         public class WeatherInfo
         {
-
             [JsonProperty("weather")]
             public DataTable Weather { get; set; }
 
@@ -34,7 +31,6 @@ namespace Darpana
 
             [JsonProperty("name")]
             public string Name { get; set; }
-
         }
 
         //For Deserializing json objects into a list of dictionaries. Used for Forecast json file.
@@ -42,7 +38,6 @@ namespace Darpana
         {
             [JsonProperty("list")]
             public List<Dictionary<string, Object>> ForecastList { get; set; }
-
         }
 
         //For Deserializing objects to dictionaries. Used for main portions of forecast such as temps
@@ -68,7 +63,6 @@ namespace Darpana
             var currInfo = JsonConvert.DeserializeObject<WeatherInfo>(currWeather); //Converts Json file into appropriate types
             var iconUrl = new Uri($"http://openweathermap.org/img/wn/{currInfo.Weather.Rows[0][3]}@2x.png"); //Gets Icon image from OpenWeatherMap
             UpdateCurrWeather(currInfo, iconUrl); //Updates the display with new data
-
         }
         
         //Updates current weather text blocks in XAML file
@@ -114,7 +108,6 @@ namespace Darpana
             var iconUrl = new Uri($"http://openweathermap.org/img/wn/{forecastWeather.Rows[0][3]}@2x.png"); //Get weather condition icon from OpenWeatherMap
             var dateValue = CreateDate(forecastTimeInfo, hours); //Runs CreateDate method to update day of week
 
-
             //If only one day ahead
             if (days == 1)
             {
@@ -154,127 +147,101 @@ namespace Darpana
             return dateValue;
         }
 
-        //Builds grammars to be added into the speech recognition engine
-        public void BuildGrammars()
-        {
-            var initialChoices = new Choices("darpana"); //Initial command for taking in commands
-            var valueChoices = new Choices("hide", "show"); //Commands for if the user wants to hide or show something
-            var moduleChoices = new Choices("weather", "time", "everything"); //Commands for what to hide or show
-
-            initialGrammar = new GrammarBuilder();
-            commandGrammar = new GrammarBuilder();
-
-            //Adds choices to the grammars
-            commandGrammar.Append(valueChoices);
-            commandGrammar.Append(moduleChoices);
-            initialGrammar.Append(initialChoices);
-
-        }
-
         //Starts speech recognition to listen to first command "Darpana"
-        public void SpeechRecognitionStart()
+        public void SpeechRecognition()
         {
-            var speechRecognizerInitial = new SpeechRecognitionEngine(new CultureInfo("en-US")); //Creates new speech recognition engine in US locale
+            speechRecognizer.SpeechRecognized += SpeechRecognizer_Speech; //Runs the command heard
+            var grammar = new GrammarBuilder();
 
-            speechRecognizerInitial.SpeechRecognized += SpeechRecognizer_SpeechInitial; //Runs the command heard
-            speechRecognizerInitial.LoadGrammarAsync(new Grammar(initialGrammar)); //Loads grammar into recognition engine asynchronously so the engine knows what to listen for
-            speechRecognizerInitial.SetInputToDefaultAudioDevice(); //Sets input to default audio (device mic)
+            var initial = new Choices("darpana"); //Initial command for taking in commands
+            var actions = new Choices("hide", "show", "operation"); // all potential actions that can be made
+            var modules = new Choices("weather", "time", "everything", "ironhorse"); //all potential modules that can be changed
 
-            //Functions to try to cut out time between starting command ("darpana") and show/hide commands. Makes engine not listen after user has made command
-            speechRecognizerInitial.InitialSilenceTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerInitial.BabbleTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerInitial.EndSilenceTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerInitial.EndSilenceTimeoutAmbiguous = TimeSpan.FromSeconds(0);
+            //append all the choices to the grammar
+            grammar.Append(initial);
+            grammar.Append(actions);
+            grammar.Append(modules);
 
-            speechRecognizerInitial.RecognizeAsync(RecognizeMode.Single); //Recognize speech for one word then stop
+            speechRecognizer.LoadGrammar(new Grammar(grammar)); //Loads grammar into recognition engine asynchronously so the engine knows what to listen for
+            speechRecognizer.SetInputToDefaultAudioDevice(); //Sets input to default audio (device mic)
+            speechRecognizer.RecognizeAsync(RecognizeMode.Multiple); //Recognize speech for multiple words
 
-        }
-
-        //Same thing as function above but for hide/show commands
-        public void SpeechRecognitionCommands()
-        {
-            var speechRecognizerCommands = new SpeechRecognitionEngine(new CultureInfo("en-US"));
-
-            speechRecognizerCommands.SpeechRecognized += SpeechRecognizer_SpeechCommands;
-            speechRecognizerCommands.LoadGrammarAsync(new Grammar(commandGrammar));
-            speechRecognizerCommands.SetInputToDefaultAudioDevice();
-
-            speechRecognizerCommands.InitialSilenceTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerCommands.BabbleTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerCommands.EndSilenceTimeout = TimeSpan.FromSeconds(0);
-            speechRecognizerCommands.EndSilenceTimeoutAmbiguous = TimeSpan.FromSeconds(0);
-
-            speechRecognizerCommands.RecognizeAsync(RecognizeMode.Multiple); //Listens for multiple phrases
-
-        }
-
-        //Checks if user said Darpana
-        private void SpeechRecognizer_SpeechInitial(object sender, SpeechRecognizedEventArgs e)
-        {
-            if (e.Result.Words.Count == 1) //If user said something make it lower case
-            {
-                var initial = e.Result.Words[0].Text.ToLower();
-
-                switch (initial)
-                {
-                    case "darpana": //if the user said Darpana, have Darpana respond.
-                        var speechSynthesizer = new SpeechSynthesizer(); //Makes new speech synthesizer to allow for talk back
-                        speechSynthesizer.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult, 0, new CultureInfo("fr-FR")); //Makes voice female and french
-                        speechSynthesizer.Volume = 100; //Sets output device to 100% volume
-                        speechSynthesizer.Speak("Yes"); //Has darpana say yes
-                        SpeechRecognitionCommands(); //Once something is said run the recognition for taking in commands
-                        break;
-                }
-            }
         }
 
         //Essenitally same thing as above but for commands
-        private void SpeechRecognizer_SpeechCommands(object sender, SpeechRecognizedEventArgs e)
+        private void SpeechRecognizer_Speech(object sender, SpeechRecognizedEventArgs e)
         {
-
-            if (e.Result.Words.Count == 2) //If there are two words that are said
+            Debug.WriteLine(e.Result.Words.Count);
+            if (e.Result.Words.Count == 3) //If there are three words that are said
             {
-                //Make both words lower case
-                var value = e.Result.Words[0].Text.ToLower();
-                var module = e.Result.Words[1].Text.ToLower();
+                //Make words lower case
+                var initial = e.Result.Words[0].Text.ToLower();
+                var action = e.Result.Words[1].Text.ToLower();
+                var module = e.Result.Words[2].Text.ToLower();
 
-
-                switch (value)
+                switch (initial)
                 {
-                    case "hide": //if user said hide, check for next command
-                        switch (module)
+                    case "darpana":
+
+                        switch (action)
                         {
+                            case "hide": //if user said hide, check for next command
+                                switch (module)
+                                {
+                                    //hide module based on if user said weather, time, or everything
+                                    case "weather":
+                                        Debug.WriteLine("Weather");
+                                        WeatherModule.Visibility = Visibility.Hidden;
+                                        break;
 
-                            //hide module based on if user said weather, time, or everything
-                            case "weather":
-                                WeatherModule.Visibility = Visibility.Hidden;
+                                    case "time":
+                                        TimeModule.Visibility = Visibility.Hidden;
+                                        break;
+
+                                    case "everything":
+                                        DarpanaWindow.Visibility = Visibility.Hidden;
+                                        break;
+                                }
                                 break;
 
-                            case "time":
-                                TimeModule.Visibility = Visibility.Hidden;
+                            case "show":
+                                switch (module) //if user said show, check for next command
+                                {
+                                    //show weather, time, or everything if that is what the user said
+                                    case "weather":
+                                        WeatherModule.Visibility = Visibility.Visible;
+                                        break;
+
+                                    case "time":
+                                        TimeModule.Visibility = Visibility.Visible;
+                                        break;
+
+                                    case "everything":
+                                        DarpanaWindow.Visibility = Visibility.Visible;
+                                        TimeModule.Visibility = Visibility.Visible;
+                                        WeatherModule.Visibility = Visibility.Visible;
+                                        break;
+                                }
                                 break;
 
-                            case "everything":
-                                DarpanaWindow.Visibility = Visibility.Hidden;
-                                break;
+                            case "operation":
+                                switch (module)
+                                {
+                                   
+                                    case "ironhorse": //if user says "darpana operation ironhorse, runs little easteregg
 
-                        }
-                        break;
-
-                    case "show":
-                        switch (module) //if user said show, check for next command
-                        {
-                            //show weather, time, or everything if that is what the user said
-                            case "weather":
-                                WeatherModule.Visibility = Visibility.Visible;
-                                break;
-
-                            case "time":
-                                TimeModule.Visibility = Visibility.Visible;
-                                break;
-
-                            case "everything":
-                                DarpanaWindow.Visibility = Visibility.Visible;
+                                        //creates and opens new cmd line then runs command. Closes cmd line once cmd is over
+                                        Process process = new Process();
+                                        ProcessStartInfo startInfo = new ProcessStartInfo 
+                                        {
+                                            FileName = "cmd.exe",
+                                            Arguments = "/C start C:\\users\\braid\\Source\\repos\\braidynbritt\\Darpana\\Darpana\\slt --filled --colored --speed 4"
+                                        };
+                                        process.StartInfo = startInfo;
+                                        process.Start();
+                                        break;
+                                       
+                                }
                                 break;
                         }
                         break;
@@ -282,8 +249,6 @@ namespace Darpana
                 //Update display
                 CommandManager.InvalidateRequerySuggested();
             }
-            //Restart initial speech recognition
-            SpeechRecognitionStart();
         }
 
         //Starts the dispatcher timers for updating XAML file/display
@@ -311,9 +276,11 @@ namespace Darpana
         //Asyn class that does OpenWeatherMap API call. If succesful response is returned then give content to other primary methods
         public async Task<string> GetCurrWeatherInfo()
         {
-            
-            HttpClient client = new HttpClient();
-            client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/"); //API URL for client
+            HttpClient client = new HttpClient
+            {
+                BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/") //API URL for client
+            };
+
             var query = $"weather?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial"; //Api specifics. Gets location of Storm Lake, IA and gives Farhenheit temp.
             var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
@@ -322,11 +289,14 @@ namespace Darpana
 
         }
 
-        //Same thing as above class. Runs different API query.
+        //Same thing as above method. Runs different API query.
         public async Task<string> GetForecastInfo()
         {
-            HttpClient client = new HttpClient();
-            client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
+            HttpClient client = new HttpClient
+            {
+                BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/")
+            };
+
             var query = $"forecast/daily?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
             var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
@@ -335,10 +305,14 @@ namespace Darpana
            
         }
 
+        //Same as about method. Runs different API
         public async Task<string> GetForecastTime()
         {
-            HttpClient client = new HttpClient();
-            client.BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/");
+            HttpClient client = new HttpClient
+            {
+                BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/")
+            };
+
             var query = $"forecast?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial";
             var response = await client.GetAsync(query);
             response.EnsureSuccessStatusCode();
@@ -346,11 +320,9 @@ namespace Darpana
             return await response.Content.ReadAsStringAsync();
         }
 
-
-            //DispatcherTimer method for time module. Updated Time and Date
-            private void DispatcherTimer_Time(object sender, EventArgs e)
+        //DispatcherTimer method for time module. Updated Time and Date
+        private void DispatcherTimer_Time(object sender, EventArgs e)
         {
-
             //Updates time and date text boxes
             Time.Text = DateTime.Now.ToString("T");
             Date.Text = DateTime.Now.ToString("D");
@@ -364,7 +336,6 @@ namespace Darpana
         {
             // Runs all current weather methods.
             GetCurrWeather();
-      
 
             // Forcing the CommandManager to raise the RequerySuggested event. Updates display
             CommandManager.InvalidateRequerySuggested();
@@ -382,23 +353,15 @@ namespace Darpana
 
         //Main function. Runs initial methods
         public MainWindow()
-        {
-            //Gets API key from user environment 
-            OWAPIKEY = Environment.GetEnvironmentVariable("OWAPIKEY", EnvironmentVariableTarget.User);
-
+        {            
             InitializeComponent(); //WPF method
-            Time.Text = DateTime.Now.ToString("T"); //Gets current time on startup and sets appropriate text block
-            Date.Text = DateTime.Now.ToString("D"); //Gets current date on startup and sets appropriate text block
             GetCurrWeather(); //Runs all weather methods to get current weather on startup
             GetForecast(); //Runs all forecast methods to get forecast on startup
             StartTimers(); //Starts all the dispatcher timers for updating display
+            SpeechRecognition(); //Start speech recognition
 
-            BuildGrammars(); //Build grammars for speech recognition
-            SpeechRecognitionStart(); //Start speech recognition
-
-
-
+            Time.Text = DateTime.Now.ToString("T"); //Gets current time on startup and sets appropriate text block
+            Date.Text = DateTime.Now.ToString("D"); //Gets current date on startup and sets appropriate text block
         }
-
     }
 }
