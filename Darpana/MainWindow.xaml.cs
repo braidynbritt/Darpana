@@ -12,6 +12,10 @@ using System.Windows.Threading;
 using Newtonsoft.Json;
 using System.Speech.Recognition;
 using System.Diagnostics;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
+
+
 
 namespace Darpana
 {
@@ -19,6 +23,14 @@ namespace Darpana
     {
         readonly string OWAPIKEY = Environment.GetEnvironmentVariable("OWAPIKEY", EnvironmentVariableTarget.User); //API key for openweather
         private readonly SpeechRecognitionEngine speechRecognizer = new SpeechRecognitionEngine(); //Global speech recognition engine
+
+        [DllImport("User32")]
+        private static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
+
+        [DllImport("User32")]
+
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
 
         //For Deserializing current weather Json file
         public class WeatherInfo
@@ -64,7 +76,7 @@ namespace Darpana
             var iconUrl = new Uri($"http://openweathermap.org/img/wn/{currInfo.Weather.Rows[0][3]}@2x.png"); //Gets Icon image from OpenWeatherMap
             UpdateCurrWeather(currInfo, iconUrl); //Updates the display with new data
         }
-        
+
         //Updates current weather text blocks in XAML file
         public void UpdateCurrWeather(WeatherInfo currInfo, Uri iconUrl)
         {
@@ -98,7 +110,7 @@ namespace Darpana
         }
 
         //Updates XAML textboxes for forecast with new data. Forecast updates every 3 hours until 5 days is achieved
-        public void UpdateForecast(ForecastInfo forecastTimeInfo,ForecastInfo forecastInfo, int hours)
+        public void UpdateForecast(ForecastInfo forecastTimeInfo, ForecastInfo forecastInfo, int hours)
         {
             var days = hours / 8; //Divides hours by 8. This will get either 1 or 2 for days
             var forecastMain = ToDictionary<string>(forecastInfo.ForecastList[days]["temp"]); //Makes main forecast items (temps) a dictionary.
@@ -227,25 +239,33 @@ namespace Darpana
                             case "operation":
                                 switch (module)
                                 {
-                                   
+
                                     case "ironhorse": //if user says "darpana operation ironhorse, runs little easteregg
 
                                         //creates and opens new cmd line then runs command. Closes cmd line once cmd is over
                                         Process process = new Process();
-                                        ProcessStartInfo startInfo = new ProcessStartInfo 
+                                        ProcessStartInfo startInfo = new ProcessStartInfo
                                         {
                                             FileName = "cmd.exe",
                                             Arguments = "/C start C:\\users\\braid\\Source\\repos\\braidynbritt\\Darpana\\Darpana\\slt --filled --colored --speed 4"
                                         };
+
                                         process.StartInfo = startInfo;
                                         process.Start();
+                                        process.WaitForExit();
+
+                                        //Resets Darpana window to make sure it is not downsized after ironhorse is ran
+                                        WindowState = WindowState.Minimized;
+                                        var mainWindow = Application.Current.MainWindow;
+                                        ShowWindow(new WindowInteropHelper(mainWindow).Handle, 9);
+                                        SetForegroundWindow(new WindowInteropHelper(mainWindow).Handle);
                                         break;
-                                       
                                 }
                                 break;
                         }
                         break;
                 }
+
                 //Update display
                 CommandManager.InvalidateRequerySuggested();
             }
@@ -259,7 +279,7 @@ namespace Darpana
             dispatcherTimerTime.Tick += new EventHandler(DispatcherTimer_Time);
             dispatcherTimerTime.Interval = new TimeSpan(0, 0, 0, 0, 500);
             dispatcherTimerTime.Start();
-            
+
             //DispatcherTimer for current weather event. Updates every 30 minutes.
             var dispatcherTimerWeather = new DispatcherTimer();
             dispatcherTimerWeather.Tick += new EventHandler(DispatcherTimer_Weather);
@@ -302,7 +322,7 @@ namespace Darpana
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsStringAsync();
-           
+
         }
 
         //Same as about method. Runs different API
@@ -353,7 +373,7 @@ namespace Darpana
 
         //Main function. Runs initial methods
         public MainWindow()
-        {            
+        {
             InitializeComponent(); //WPF method
             GetCurrWeather(); //Runs all weather methods to get current weather on startup
             GetForecast(); //Runs all forecast methods to get forecast on startup
