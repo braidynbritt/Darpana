@@ -1,36 +1,37 @@
-﻿//https://github.com/chunfeilung/slt
-
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Speech.Recognition;
+using System.Speech.Synthesis;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using Newtonsoft.Json;
-using System.Speech.Recognition;
-using System.Diagnostics;
-using System.Windows.Interop;
-using System.Runtime.InteropServices;
-
-
 
 namespace Darpana
 {
     public partial class MainWindow : Window
     {
-        readonly string OWAPIKEY = Environment.GetEnvironmentVariable("OWAPIKEY", EnvironmentVariableTarget.User); //API key for openweather
+        private readonly string OWAPIKEY = Environment.GetEnvironmentVariable("OWAPIKEY", EnvironmentVariableTarget.User); //API key for openweather
         private readonly SpeechRecognitionEngine speechRecognizer = new SpeechRecognitionEngine(); //Global speech recognition engine
+        private readonly SpeechRecognitionEngine toDoSpeech = new SpeechRecognitionEngine(); //SpeechEngine for to do list
+        private readonly DoubleAnimation doubleAnimation = new DoubleAnimation();
+        private string addOrRemove; //Global string for adding or removing from to do list
 
         [DllImport("User32")]
         private static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
 
         [DllImport("User32")]
-
         private static extern bool SetForegroundWindow(IntPtr hWnd);
-
 
         //For Deserializing current weather Json file
         public class WeatherInfo
@@ -67,6 +68,7 @@ namespace Darpana
             var dataTable = JsonConvert.DeserializeObject<DataTable>(json);
             return dataTable;
         }
+
 
         //Gets current weather from OpenWeatherMap API Json file
         public async void GetCurrWeather()
@@ -159,25 +161,215 @@ namespace Darpana
             return dateValue;
         }
 
+        //Updates the to do list based off user input list passed in
+        public void UpdateToDo(List<string> newToDoList)
+        {
+            TDList.Text = "";
+            //For each item in the to do list, add it to the text box text
+            foreach (var item in newToDoList)
+            {
+                if (TDList.Text != "") //If the text box is not empty add a newline before each item
+                {
+                    TDList.Text = $"{TDList.Text}{item}";
+                }
+                else //otherwise just add a new item
+                {
+                    TDList.Text = $"{item}";
+                }
+            }
+            CommandManager.InvalidateRequerySuggested(); //Update display
+        }
+
         //Starts speech recognition to listen to first command "Darpana"
         public void SpeechRecognition()
         {
             speechRecognizer.SpeechRecognized += SpeechRecognizer_Speech; //Runs the command heard
-            var grammar = new GrammarBuilder();
+            toDoSpeech.SpeechRecognized += ToDo_Speech; //Runs functionality for to do list
 
+            var grammar = new GrammarBuilder();
             var initial = new Choices("darpana"); //Initial command for taking in commands
-            var actions = new Choices("hide", "show", "operation"); // all potential actions that can be made
-            var modules = new Choices("weather", "time", "everything", "ironhorse"); //all potential modules that can be changed
+            var actions = new Choices("hide", "show", "operation", "add", "remove"); // all potential actions that can be made
+            var modules = new Choices("weather", "time", "everything", "todo", "ironhorse", "task"); //all potential modules that can be changed
 
             //append all the choices to the grammar
             grammar.Append(initial);
             grammar.Append(actions);
             grammar.Append(modules);
+            
+            //speechRecognizer.SetInputToNull(); //FOR TESTING PURPOSES
 
+            toDoSpeech.LoadGrammar(new DictationGrammar());
             speechRecognizer.LoadGrammar(new Grammar(grammar)); //Loads grammar into recognition engine asynchronously so the engine knows what to listen for
             speechRecognizer.SetInputToDefaultAudioDevice(); //Sets input to default audio (device mic)
+            toDoSpeech.SetInputToDefaultAudioDevice();
+
+            //speechRecognizer.EmulateRecognize("darpana operation ironhorse"); //FOR TESTING PURPOSES
+
             speechRecognizer.RecognizeAsync(RecognizeMode.Multiple); //Recognize speech for multiple words
 
+        }
+
+        private void StartAnimation(string module, string action)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(()=> //Gets main thread then runs code async with lamda function
+            {
+                if (action == "hide") //If user told darpana to hide a program
+                {
+                    var translateTransform = new TranslateTransform(); //Make a new translation object
+                    switch (module) { //Depeding on which module was said, start an animation with that module
+                        case "weather":
+                            if (WeatherGrid.Margin == new Thickness(0, 45, 0, 0)) //If the weather module is in the initial spot
+                            {
+                                WeatherGrid.RenderTransform = translateTransform; //Renders a transform on the the weather module
+                                doubleAnimation.From = 0; //go from pixel 0 to 388 for 1 second
+                                doubleAnimation.To = 388;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation); //Run the animation
+                                WeatherGrid.Margin = new Thickness(0, 45, 0, 388); //set new margins
+                            }
+                            break;
+
+                        case "time": //Same as above but for time
+                            if (TimeGrid.Margin == new Thickness(0, 0, 0, 0))
+                            {
+                                TimeGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 0;
+                                doubleAnimation.To = -450;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                TimeGrid.Margin = new Thickness(0, 0, 0, -450);
+                            }
+                            break;
+
+                        case "todo": // same as above but for the todo list
+                            if (ToDoGrid.Margin == new Thickness(0, 0, 0, 0))
+                            {
+                                ToDoGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 0;
+                                doubleAnimation.To = -388;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                ToDoGrid.Margin = new Thickness(0, 0, 0, -388);
+                            }
+                            break;
+
+                        case "everything": //same as above but combine all three
+                            if (TimeGrid.Margin == new Thickness(0, 0, 0, 0))
+                            {
+                                translateTransform = new TranslateTransform();
+                                TimeGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 0;
+                                doubleAnimation.To = -450;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                TimeGrid.Margin = new Thickness(0, 0, 0, -450);
+
+                            }
+
+                            if (WeatherGrid.Margin == new Thickness(0, 45, 0, 0))
+                            {
+                                translateTransform = new TranslateTransform();
+                                WeatherGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 0;
+                                doubleAnimation.To = 388;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                WeatherGrid.Margin = new Thickness(0, 45, 0, 388);
+                            }
+
+                            if (ToDoGrid.Margin == new Thickness(0, 0, 0, 0))
+                            {
+                                translateTransform = new TranslateTransform();
+                                ToDoGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 0;
+                                doubleAnimation.To = -388;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                ToDoGrid.Margin = new Thickness(0, 0, 0, -388);
+                            }
+                            break;
+                    }
+                }
+
+                else //if the user states to show instead. Do all the same stuff as above but the inverse margins.
+                {
+                    var translateTransform = new TranslateTransform();
+                    switch (module) {
+                        case "weather":
+                            if (WeatherGrid.Margin == new Thickness(0, 45, 0, 388))
+                            {
+                                WeatherGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 388;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                WeatherGrid.Margin = new Thickness(0, 45, 0, 0);
+                            }
+                            break;
+
+                        case "time":                  
+                            if (TimeGrid.Margin == new Thickness(0, 0, 0, -450))
+                            {
+                                TimeGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = -450;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                TimeGrid.Margin = new Thickness(0, 0, 0, 0);
+                            }
+                            break;
+
+                        case "todo":
+                            if (ToDoGrid.Margin == new Thickness(0, 0, 0, -388))
+                            {
+                                ToDoGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = -388;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                ToDoGrid.Margin = new Thickness(0, 0, 0, 0);
+                            }
+                            break;
+
+                        case "everything":
+                            if (TimeGrid.Margin == new Thickness(0, 0, 0, -450))
+                            {
+                                TimeGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = -450;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                TimeGrid.Margin = new Thickness(0, 0, 0, 0);
+
+                            }
+                            
+                            if (WeatherGrid.Margin == new Thickness(0, 45, 0, 388))
+                            {
+                                translateTransform = new TranslateTransform();
+                                WeatherGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = 388;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                WeatherGrid.Margin = new Thickness(0, 45, 0, 0);
+
+                            }
+
+                            if (ToDoGrid.Margin == new Thickness(0, 0, 0, -388))
+                            {
+                                translateTransform = new TranslateTransform();
+                                ToDoGrid.RenderTransform = translateTransform;
+                                doubleAnimation.From = -388;
+                                doubleAnimation.To = 0;
+                                doubleAnimation.Duration = TimeSpan.FromSeconds(1);
+                                translateTransform.BeginAnimation(TranslateTransform.XProperty, doubleAnimation);
+                                ToDoGrid.Margin = new Thickness(0, 0, 0, 0);
+
+                            }
+                            break;
+                    }
+                }
+            }));
         }
 
         //Essenitally same thing as above but for commands
@@ -198,53 +390,68 @@ namespace Darpana
                         switch (action)
                         {
                             case "hide": //if user said hide, check for next command
+
                                 switch (module)
                                 {
                                     //hide module based on if user said weather, time, or everything
                                     case "weather":
-                                        Debug.WriteLine("Weather");
-                                        WeatherModule.Visibility = Visibility.Hidden;
+                                        StartAnimation("weather", "hide");
                                         break;
 
                                     case "time":
-                                        TimeModule.Visibility = Visibility.Hidden;
+                                        StartAnimation("time", "hide");
+                                        break;
+
+                                    case "todo":
+                                        StartAnimation("todo", "hide");
                                         break;
 
                                     case "everything":
-                                        DarpanaWindow.Visibility = Visibility.Hidden;
+                                        StartAnimation("everything", "hide");
                                         break;
                                 }
                                 break;
 
                             case "show":
+
                                 switch (module) //if user said show, check for next command
                                 {
                                     //show weather, time, or everything if that is what the user said
                                     case "weather":
-                                        WeatherModule.Visibility = Visibility.Visible;
+                                        StartAnimation("weather", "show");
                                         break;
 
                                     case "time":
-                                        TimeModule.Visibility = Visibility.Visible;
+                                        StartAnimation("time", "show");
+                                        break;
+
+                                    case "todo":
+                                        StartAnimation("todo", "show");
                                         break;
 
                                     case "everything":
-                                        DarpanaWindow.Visibility = Visibility.Visible;
-                                        TimeModule.Visibility = Visibility.Visible;
-                                        WeatherModule.Visibility = Visibility.Visible;
+                                        StartAnimation("everything", "show");
                                         break;
                                 }
                                 break;
 
                             case "operation":
+
                                 switch (module)
                                 {
 
                                     case "ironhorse": //if user says "darpana operation ironhorse, runs little easteregg
 
+                                        SpeechSynthesizer synth = new SpeechSynthesizer();
+
+                                        // Configure the audio output.   
+                                        synth.SetOutputToDefaultAudioDevice();
+
+                                        // Speak a string.  
+
                                         //creates and opens new cmd line then runs command. Closes cmd line once cmd is over
-                                        Process process = new Process();
-                                        ProcessStartInfo startInfo = new ProcessStartInfo
+                                        var process = new Process();
+                                        var startInfo = new ProcessStartInfo
                                         {
                                             FileName = "cmd.exe",
                                             Arguments = "/C start C:\\users\\braid\\Source\\repos\\braidynbritt\\Darpana\\Darpana\\slt --filled --colored --speed 4"
@@ -252,6 +459,7 @@ namespace Darpana
 
                                         process.StartInfo = startInfo;
                                         process.Start();
+                                        synth.Speak("CHOO CHOO!");
                                         process.WaitForExit();
 
                                         //Resets Darpana window to make sure it is not downsized after ironhorse is ran
@@ -259,6 +467,29 @@ namespace Darpana
                                         var mainWindow = Application.Current.MainWindow;
                                         ShowWindow(new WindowInteropHelper(mainWindow).Handle, 9);
                                         SetForegroundWindow(new WindowInteropHelper(mainWindow).Handle);
+
+                                        break;
+                                }
+                                break;
+                            case "add": //if user tells darpana to add something
+                                switch (module)
+                                {
+                                    case "task":
+                                        //Change global string to add, stop the command speech engine and start the todo list speech engine
+                                        addOrRemove = "add";
+                                        speechRecognizer.RecognizeAsyncStop();
+                                        toDoSpeech.RecognizeAsync(RecognizeMode.Multiple);
+                                        break;
+                                }
+                                break;
+                            case "remove": //If user tells darpana to remove something
+                                switch (module)
+                                {
+                                    case "task":
+                                        //Change global string to remove, stop command speech engine, start to do list speech engine
+                                        addOrRemove = "remove";
+                                        speechRecognizer.RecognizeAsyncStop();
+                                        toDoSpeech.RecognizeAsync(RecognizeMode.Multiple);
                                         break;
                                 }
                                 break;
@@ -269,6 +500,57 @@ namespace Darpana
                 //Update display
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        //Code for the ToDo speech engine
+        private void ToDo_Speech(object sender, SpeechRecognizedEventArgs e)
+        { 
+            Debug.WriteLine(e.Result.Confidence);
+            if (e.Result.Confidence > .5) //If engine has confidence over 50% of what was said
+            {
+                if (addOrRemove == "add") //if global string is add
+                {
+                    //Get old to todo list then add the new item to it. Then add to do list with the new list
+                    var prevString = TDList.Text;
+                    var fullString = $"{e.Result.Text}\n";
+                    var newToDo = new List<string>
+                    {
+                        prevString,
+                        fullString
+                    };
+
+                    UpdateToDo(newToDo); //update to do list with list it things to do
+                    speechRecognizer.RecognizeAsync(RecognizeMode.Multiple);
+                    toDoSpeech.RecognizeAsyncStop(); //Turn off to do speech engine
+                }
+
+                if (addOrRemove == "remove") //If global is "remove"
+                {
+                    //Get old todo list and what was said. Then remove what was said based off the index then add updated todo list to the list
+                    var prevString = TDList.Text;
+                    var fullString = $"{e.Result.Text}\n";
+                    var index = prevString.IndexOf(fullString);
+                    if (index > -1)
+                    {
+                        var newString = prevString.Remove(index, fullString.Length);
+                        var newToDo = new List<string>
+                        {
+                            newString,
+                        };
+
+                        UpdateToDo(newToDo); //update to do list
+                        speechRecognizer.RecognizeAsync(RecognizeMode.Multiple);
+                        toDoSpeech.RecognizeAsyncStop(); //Turn of to do speech engine
+                    }
+                }
+            }
+
+            else
+            {
+                var player = new System.Media.SoundPlayer(@"C:\Users\braid\source\repos\braidynbritt\Darpana\Darpana\error.wav");
+                player.Play();
+            }
+            
         }
 
         //Starts the dispatcher timers for updating XAML file/display
@@ -296,15 +578,14 @@ namespace Darpana
         //Asyn class that does OpenWeatherMap API call. If succesful response is returned then give content to other primary methods
         public async Task<string> GetCurrWeatherInfo()
         {
-            HttpClient client = new HttpClient
+            var client = new HttpClient
             {
                 BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/") //API URL for client
             };
 
             var query = $"weather?lat=42.6411&lon=-95.2097&APPID={OWAPIKEY}&units=imperial"; //Api specifics. Gets location of Storm Lake, IA and gives Farhenheit temp.
             var response = await client.GetAsync(query);
-            response.EnsureSuccessStatusCode();
-            //If response is successful move on
+            response.EnsureSuccessStatusCode(); //If response is successful move on
             return await response.Content.ReadAsStringAsync();
 
         }
@@ -312,7 +593,7 @@ namespace Darpana
         //Same thing as above method. Runs different API query.
         public async Task<string> GetForecastInfo()
         {
-            HttpClient client = new HttpClient
+            var client = new HttpClient
             {
                 BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/")
             };
@@ -325,10 +606,10 @@ namespace Darpana
 
         }
 
-        //Same as about method. Runs different API
+        //Same as above method. Runs different API
         public async Task<string> GetForecastTime()
         {
-            HttpClient client = new HttpClient
+            var client = new HttpClient
             {
                 BaseAddress = new Uri("http://pro.openweathermap.org/data/2.5/")
             };
@@ -372,9 +653,9 @@ namespace Darpana
         }
 
         //Main function. Runs initial methods
-        public MainWindow()
+
+        private void Window_Loaded(Object sender, RoutedEventArgs e)
         {
-            InitializeComponent(); //WPF method
             GetCurrWeather(); //Runs all weather methods to get current weather on startup
             GetForecast(); //Runs all forecast methods to get forecast on startup
             StartTimers(); //Starts all the dispatcher timers for updating display
@@ -382,6 +663,11 @@ namespace Darpana
 
             Time.Text = DateTime.Now.ToString("T"); //Gets current time on startup and sets appropriate text block
             Date.Text = DateTime.Now.ToString("D"); //Gets current date on startup and sets appropriate text block
+        }
+
+        public MainWindow()
+        {
+            InitializeComponent(); //WPF method
         }
     }
 }
