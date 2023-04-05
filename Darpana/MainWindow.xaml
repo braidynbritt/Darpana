@@ -46,8 +46,8 @@ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
             </Grid>
         </Border>
         <Border x:Name="ToDo" Visibility="Visible">
-            <Grid x:Name="ToDoGrid" Margin="0,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom" Height="450" Width="400">
-                <TextBlock x:Name="TDList" Margin="40,0,0,0" Text ="" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize ="30" Height="450" Width="360" Foreground="White"> </TextBlock>
+            <Grid x:Name="ToDoGrid" Margin="40,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom" Height="300" Width="360">
+                <TextBlock x:Name="TDList" Margin="0,0,0,0" Text ="" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize ="30" Height="250" Width="360" Foreground="White" RenderTransformOrigin="0.502,0.49"> </TextBlock>
             </Grid>
             
         </Border>

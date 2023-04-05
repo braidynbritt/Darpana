@@ -7,7 +7,6 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Speech.Recognition;
 using System.Speech.Synthesis;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -506,13 +505,14 @@ namespace Darpana
         private void ToDo_Speech(object sender, SpeechRecognizedEventArgs e)
         { 
             Debug.WriteLine(e.Result.Confidence);
-            if (e.Result.Confidence > .5) //If engine has confidence over 50% of what was said
+            if (e.Result.Confidence > .4) //If engine has confidence over 50% of what was said
             {
                 if (addOrRemove == "add") //if global string is add
                 {
                     //Get old to todo list then add the new item to it. Then add to do list with the new list
                     var prevString = TDList.Text;
                     var fullString = $"{e.Result.Text}\n";
+                    fullString = char.ToUpper(fullString[0]) + fullString.Substring(1);
                     var newToDo = new List<string>
                     {
                         prevString,
